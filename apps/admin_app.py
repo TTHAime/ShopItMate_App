@@ -27,7 +27,7 @@ def mock_conversation_messages(intent: str):
             ("user", "มีของพร้อมส่งไหม"),
             ("assistant", "ได้ครับ (mock) รบกวนบอกรุ่น/สาขาที่ต้องการเช็คสต็อกครับ"),
             ("user", "อยากได้ MacBook Air M2"),
-            ("assistant", "รับทราบครับ (mock) ถ้าต่อ API/DB จะเช็คสต็อกเรียลไทม์ให้ได้เลย"),
+            ("assistant", "รับทราบครับ (mock) ถ้าต่อ API/DB จะเช็คสต็อกแบบเรียลไทม์ให้ได้เลย"),
         ],
         "ถามการจัดส่ง": [
             ("user", "ส่งไปต่างจังหวัดใช้เวลานานไหม"),
@@ -111,6 +111,7 @@ def mock_metabase_fetch():
             "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "channel": random.choice(["Web Chat", "LINE OA", "Facebook", "Call Center"]),
             "messages": mock_conversation_messages(intent),
+            "ai_summary": None,  # จะ generate ตอนกด View
         }
 
     recents.sort(key=lambda x: x["time"], reverse=True)
@@ -127,6 +128,49 @@ def mock_metabase_fetch():
         "recents": recents,
         "conversations": conversations,
         "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+# ------------------------------
+# AI Summary (mock)
+# ------------------------------
+def ai_summary_mock(conv: dict) -> dict:
+    msgs = conv.get("messages", [])
+    user_msgs = [m["content"] for m in msgs if m.get("role") == "user"]
+    last_user = user_msgs[-1] if user_msgs else ""
+
+    t = (last_user or "").lower()
+    if any(k in t for k in ["เทียบ", "สเปค", "i5", "i7", "spec"]):
+        intent = "เทียบสเปค"
+        next_q = "ใช้งานหลัก ๆ เล่นเกม/ทำงาน/เรียน? และงบประมาณประมาณเท่าไหร่ครับ"
+        action = "ส่งตารางเทียบ + แนะนำ 2-3 รุ่น"
+    elif any(k in t for k in ["ราคา", "price"]):
+        intent = "เช็คราคา"
+        next_q = "สนใจรุ่น/ยี่ห้อไหน และต้องการผ่อน 0% ไหมครับ"
+        action = "แจ้งราคา + โปร/ผ่อน"
+    elif any(k in t for k in ["สต็อก", "stock", "มีของ"]):
+        intent = "ดูสต็อก"
+        next_q = "ต้องการเช็คสาขาไหน/จัดส่งจังหวัดอะไรครับ"
+        action = "เช็คสต็อก + แจ้ง ETA"
+    elif any(k in t for k in ["ส่ง", "delivery", "ขนส่ง"]):
+        intent = "ถามการจัดส่ง"
+        next_q = "จัดส่งจังหวัดไหน และต้องการด่วนไหมครับ"
+        action = "เสนอขนส่ง + ETA + ค่าส่ง"
+    elif any(k in t for k in ["เคลม", "คืน", "warranty", "refund"]):
+        intent = "นโยบายคืน/เคลม"
+        next_q = "สินค้าซื้อเมื่อไหร่ และมีอาการ/ปัญหาอะไรครับ"
+        action = "สรุปขั้นตอนเคลม + เอกสารที่ต้องใช้"
+    else:
+        intent = conv.get("intent", "ทั่วไป")
+        next_q = "ขอรายละเอียดเพิ่มนิดนึงครับ เช่น รุ่น/งบ/การใช้งาน"
+        action = "ถามเพิ่มแล้วตอบให้ตรง"
+
+    return {
+        "intent": intent,
+        "customer_goal": last_user or "(ไม่พบข้อความจากลูกค้า)",
+        "what_happened": "ลูกค้าสอบถาม/ขอคำแนะนำ และระบบบอทตอบเบื้องต้น (mock)",
+        "recommended_next_question": next_q,
+        "recommended_action": action,
+        "confidence": "Medium (mock)",
     }
 
 # ------------------------------
@@ -241,7 +285,7 @@ for row in filtered:
 st.markdown("---")
 
 # ------------------------------
-# Conversation detail (mock)
+# Conversation detail + AI summary + Admin reply
 # ------------------------------
 if st.session_state.selected_conv_id:
     conv_id = st.session_state.selected_conv_id
@@ -249,32 +293,130 @@ if st.session_state.selected_conv_id:
 
     if conv is None:
         st.warning("ไม่พบข้อมูลแชทนี้ (อาจ refresh แล้วข้อมูลเปลี่ยน)")
-    else:
-        top = st.columns([1, 6, 1.2])
-        top[0].markdown("### 💬 Chat Detail")
-        top[2].button("⬅ Back", on_click=lambda: st.session_state.update({"selected_conv_id": None}))
+        st.stop()
 
-        info1, info2, info3, info4, info5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
-        info1.metric("Conversation", conv["id"])
-        info2.metric("Customer", conv["customer"])
-        info3.metric("Status", conv["status"])
-        info4.metric("Intent", conv["intent"])
-        info5.metric("Channel", conv["channel"])
+    top = st.columns([1, 6, 1.2])
+    top[0].markdown("### 💬 Chat Detail")
+    top[2].button("⬅ Back", on_click=lambda: st.session_state.update({"selected_conv_id": None}))
 
-        st.caption(f"Created at: {conv['created_at']}")
+    info1, info2, info3, info4, info5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
+    info1.metric("Conversation", conv["id"])
+    info2.metric("Customer", conv["customer"])
+    info3.metric("Status", conv["status"])
+    info4.metric("Intent", conv["intent"])
+    info5.metric("Channel", conv["channel"])
 
-        st.markdown("#### Transcript")
-        # แสดง transcript แบบ chat bubble ของ streamlit
-        for m in conv["messages"]:
-            role = "user" if m["role"] == "user" else "assistant"
-            with st.chat_message(role):
-                st.markdown(m["content"])
+    st.caption(f"Created at: {conv['created_at']}")
 
-        st.markdown("#### Actions (mock)")
-        a1, a2, a3 = st.columns(3)
-        if a1.button("✅ Mark Resolved (mock)"):
-            st.success("อัปเดตสถานะเป็น Resolved (mock) — ถ้าต่อจริงจะยิง API ไปอัปเดตในระบบ")
-        if a2.button("⚠ Escalate to Human (mock)"):
-            st.warning("ส่งต่อให้เจ้าหน้าที่ (mock) — ถ้าต่อจริงจะสร้าง ticket/notify ได้")
-        if a3.button("📋 Copy summary (mock)"):
-            st.info("สรุปแชท: (mock) ลูกค้าถามเรื่อง " + conv["intent"])
+    # Transcript
+    st.markdown("#### Transcript")
+    for m in conv["messages"]:
+        role = m["role"]
+        # map admin เป็น assistant เพื่อให้ bubble สวย (หรือจะแยกสีด้วย CSS ก็ได้)
+        if role == "admin":
+            bubble_role = "assistant"
+            label = "🧑‍💼 Admin"
+        else:
+            bubble_role = "user" if role == "user" else "assistant"
+            label = None
+
+        with st.chat_message(bubble_role):
+            if label:
+                st.caption(label)
+            st.markdown(m["content"])
+
+    # AI Summary
+    st.markdown("---")
+    st.subheader("🧠 AI Summary (mock)")
+    if conv.get("ai_summary") is None:
+        conv["ai_summary"] = ai_summary_mock(conv)
+        data["conversations"][conv_id] = conv  # update in session
+
+    s = conv["ai_summary"]
+    a, b, c = st.columns([1.2, 2.2, 1])
+    a.metric("Intent", s["intent"])
+    c.metric("Confidence", s["confidence"])
+    b.write("**Customer goal (ล่าสุด):**")
+    b.write(s["customer_goal"])
+
+    st.write("**What happened:**")
+    st.write(s["what_happened"])
+
+    st.write("**Recommended next question:**")
+    st.info(s["recommended_next_question"])
+
+    st.write("**Recommended action:**")
+    st.success(s["recommended_action"])
+
+    # Admin Reply
+    st.markdown("---")
+    st.subheader("🧑‍💼 Admin Reply")
+    with st.form(key=f"reply_form_{conv_id}", clear_on_submit=True):
+        reply_text = st.text_area("พิมพ์ข้อความตอบลูกค้า...", height=120, placeholder="เช่น เดี๋ยวผมเทียบ i5 vs i7 ให้ครับ ขอทราบงบและงานที่ใช้หลัก ๆ ก่อนนะครับ")
+        colx1, colx2 = st.columns([1, 1])
+        send = colx1.form_submit_button("📨 Send reply")
+        use_suggested = colx2.form_submit_button("✨ Use suggested question")
+
+        if use_suggested:
+            st.session_state[f"prefill_{conv_id}"] = s["recommended_next_question"]
+            st.rerun()
+
+        if send:
+            if not reply_text.strip():
+                st.warning("กรุณาพิมพ์ข้อความก่อนส่ง")
+            else:
+                conv["messages"].append({
+                    "role": "admin",
+                    "content": reply_text.strip(),
+                    "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+                # update snippet ให้เหมือน “แชทล่าสุด”
+                for r in data["recents"]:
+                    if r["id"] == conv_id:
+                        r["snippet"] = reply_text.strip()[:60]
+                        break
+
+                data["conversations"][conv_id] = conv
+                st.success("ส่งข้อความแล้ว (mock) ✅")
+                st.rerun()
+
+    # Prefill suggested (optional)
+    prefill_key = f"prefill_{conv_id}"
+    if prefill_key in st.session_state:
+        st.info("คัดลอกข้อความแนะนำไปวางในกล่องตอบได้เลย:")
+        st.code(st.session_state[prefill_key], language=None)
+
+    # Actions
+    st.markdown("---")
+    st.subheader("#### Actions (mock)")
+    a1, a2, a3 = st.columns(3)
+
+    if a1.button("✅ Mark Resolved (mock)"):
+        conv["status"] = "Resolved"
+        data["conversations"][conv_id] = conv
+        for r in data["recents"]:
+            if r["id"] == conv_id:
+                r["status"] = "Resolved"
+                break
+        st.success("อัปเดตสถานะเป็น Resolved (mock)")
+        st.rerun()
+
+    if a2.button("⚠ Escalate to Human (mock)"):
+        conv["status"] = "Escalated"
+        data["conversations"][conv_id] = conv
+        for r in data["recents"]:
+            if r["id"] == conv_id:
+                r["status"] = "Escalated"
+                break
+        st.warning("ส่งต่อให้เจ้าหน้าที่ (mock)")
+        st.rerun()
+
+    if a3.button("📋 Copy summary (mock)"):
+        st.code(
+            f"- Intent: {s['intent']}\n"
+            f"- Customer: {conv['customer']}\n"
+            f"- Goal: {s['customer_goal']}\n"
+            f"- Next Q: {s['recommended_next_question']}\n"
+            f"- Action: {s['recommended_action']}",
+            language=None
+        )
