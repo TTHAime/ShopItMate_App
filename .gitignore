@@ -1,0 +1,62 @@
+# ----------------------------
+# Python / Streamlit
+# ----------------------------
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Streamlit config/cache
+.streamlit/secrets.toml
+.streamlit/*.log
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+.profile_default/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Type check / lint
+.mypy_cache/
+.pyright/
+.ruff_cache/
+
+# Logs
+*.log
+
+# ----------------------------
+# IDE / OS
+# ----------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ----------------------------
+# Local data (ปรับตามโปรเจกต์)
+# ----------------------------
+data/
+*.db
+*.sqlite3
+*.parquet
+*.csv
+
+# Env files / secrets
+.env
+.env.*
+*.pem
+*.key
