@@ -5,9 +5,50 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Admin (Mock Metabase)", page_icon="📊", layout="wide")
 
-# ------------------------------
+# =========================================================
+# SLA / Handoff config (mock)
+# =========================================================
+SLA_MINUTES = {
+    "Pending": 15,     # pending เกิน 15 นาที = breach
+    "Escalated": 10,   # escalated เกิน 10 นาที = breach
+}
+
+def parse_dt(s: str):
+    return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+
+def sla_state(conv: dict):
+    """
+    return: ("OK"|"DUE"|"BREACH", elapsed_min, sla_min)
+    """
+    status = conv.get("status")
+    if status == "Resolved":
+        return ("OK", 0, None)
+
+    sla_min = SLA_MINUTES.get(status)
+    if not sla_min:
+        return ("OK", 0, None)
+
+    created = parse_dt(conv["created_at"])
+    elapsed_min = int((datetime.now() - created).total_seconds() // 60)
+
+    if elapsed_min >= sla_min:
+        return ("BREACH", elapsed_min, sla_min)
+    elif elapsed_min >= int(sla_min * 0.8):
+        return ("DUE", elapsed_min, sla_min)
+    else:
+        return ("OK", elapsed_min, sla_min)
+
+def sla_badge(state: str):
+    if state == "BREACH":
+        return "🔥 SLA Breach"
+    if state == "DUE":
+        return "⏳ Near SLA"
+    return "✅ OK"
+
+
+# =========================================================
 # Mock: simulate Metabase query results + conversation details
-# ------------------------------
+# =========================================================
 def mock_conversation_messages(intent: str):
     """สร้าง transcript จำลองสำหรับแชท 1 เคส"""
     templates = {
@@ -90,8 +131,16 @@ def mock_metabase_fetch():
     for idx in range(12):
         conv_id = f"CNV-{datetime.now().strftime('%y%m%d')}-{idx+1:03d}"
         intent = random.choice([i[0] for i in intents])
+
+        # random created time up to 240 mins ago
         created_at = datetime.now() - timedelta(minutes=random.randint(1, 240))
-        status = random.choice(["Resolved", "Escalated", "Pending"])
+
+        # bias ให้มี pending/escalated บ้าง จะได้เห็น SLA
+        status = random.choices(
+            ["Resolved", "Escalated", "Pending"],
+            weights=[0.35, 0.25, 0.40],
+            k=1
+        )[0]
 
         row = {
             "id": conv_id,
@@ -111,7 +160,8 @@ def mock_metabase_fetch():
             "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "channel": random.choice(["Web Chat", "LINE OA", "Facebook", "Call Center"]),
             "messages": mock_conversation_messages(intent),
-            "ai_summary": None,  # จะ generate ตอนกด View
+            "ai_summary": None,     # generate ตอนเปิด view
+            "handoff_at": None,     # set ตอนกด escalate
         }
 
     recents.sort(key=lambda x: x["time"], reverse=True)
@@ -130,9 +180,9 @@ def mock_metabase_fetch():
         "fetched_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-# ------------------------------
+# =========================================================
 # AI Summary (mock)
-# ------------------------------
+# =========================================================
 def ai_summary_mock(conv: dict) -> dict:
     msgs = conv.get("messages", [])
     user_msgs = [m["content"] for m in msgs if m.get("role") == "user"]
@@ -173,9 +223,10 @@ def ai_summary_mock(conv: dict) -> dict:
         "confidence": "Medium (mock)",
     }
 
-# ------------------------------
+
+# =========================================================
 # UI
-# ------------------------------
+# =========================================================
 st.title("📊 Admin Panel (Mock) — Simulate Metabase Data")
 st.caption("หน้านี้เป็น mockup: จำลองการดึงข้อมูลจาก Metabase (ยังไม่ต่อจริง)")
 
@@ -193,6 +244,9 @@ if "mb_data" not in st.session_state or refresh:
 
 if "selected_conv_id" not in st.session_state:
     st.session_state.selected_conv_id = None
+
+if "open_dialog" not in st.session_state:
+    st.session_state.open_dialog = False
 
 data = st.session_state.mb_data
 
@@ -261,58 +315,92 @@ filtered = [
 ]
 
 # ------------------------------
+# SLA banner summary (optional but useful)
+# ------------------------------
+breach_ids = []
+for r in filtered:
+    conv = data["conversations"].get(r["id"])
+    if conv:
+        state, _, _ = sla_state(conv)
+        if state == "BREACH":
+            breach_ids.append(r["id"])
+
+if breach_ids:
+    st.warning(
+        f"🔥 มีเคส SLA Breach {len(breach_ids)} เคส: "
+        + ", ".join(breach_ids[:3])
+        + ("..." if len(breach_ids) > 3 else "")
+    )
+
+# ------------------------------
 # Table-like list with View buttons
 # ------------------------------
-header = st.columns([1.1, 1.2, 1.2, 1.2, 2.8, 0.9])
+header = st.columns([1.1, 1.2, 1.2, 1.2, 1.2, 2.6, 0.9])
 header[0].markdown("**Time**")
 header[1].markdown("**Conversation ID**")
 header[2].markdown("**Customer**")
 header[3].markdown("**Status**")
-header[4].markdown("**Snippet**")
-header[5].markdown("**Action**")
+header[4].markdown("**SLA**")
+header[5].markdown("**Snippet**")
+header[6].markdown("**Action**")
 
 for row in filtered:
-    cols = st.columns([1.1, 1.2, 1.2, 1.2, 2.8, 0.9])
+    conv = data["conversations"].get(row["id"])
+    state, elapsed, sla_min = sla_state(conv) if conv else ("OK", 0, None)
+
+    cols = st.columns([1.1, 1.2, 1.2, 1.2, 1.2, 2.6, 0.9])
     cols[0].write(row["time"])
     cols[1].code(row["id"], language=None)
     cols[2].write(row["customer"])
     cols[3].write(row["status"])
-    cols[4].write(f"[{row['intent']}] {row['snippet']}")
-    if cols[5].button("👁 View", key=f"view_{row['id']}"):
+    cols[4].write(sla_badge(state))
+    cols[5].write(f"[{row['intent']}] {row['snippet']}")
+
+    if cols[6].button("👁 View", key=f"view_{row['id']}"):
         st.session_state.selected_conv_id = row["id"]
+        st.session_state.open_dialog = True
         st.rerun()
 
-st.markdown("---")
-
-# ------------------------------
-# Conversation detail + AI summary + Admin reply
-# ------------------------------
-if st.session_state.selected_conv_id:
-    conv_id = st.session_state.selected_conv_id
+# =========================================================
+# Popup Dialog: Conversation detail
+# =========================================================
+@st.dialog("💬 Chat Detail", width="large")
+def show_conversation_dialog(conv_id: str):
     conv = data["conversations"].get(conv_id)
 
     if conv is None:
         st.warning("ไม่พบข้อมูลแชทนี้ (อาจ refresh แล้วข้อมูลเปลี่ยน)")
-        st.stop()
+        return
 
-    top = st.columns([1, 6, 1.2])
-    top[0].markdown("### 💬 Chat Detail")
-    top[2].button("⬅ Back", on_click=lambda: st.session_state.update({"selected_conv_id": None}))
+    # --- SLA / toast notification
+    state, elapsed, sla_min = sla_state(conv)
+    if state == "BREACH":
+        st.toast(f"🔥 SLA Breach: {conv_id} (ผ่านไป {elapsed} นาที / SLA {sla_min} นาที)", icon="🔥")
+        st.error(f"SLA Breach: ผ่านไป {elapsed} นาที (SLA {sla_min} นาที)")
+    elif state == "DUE":
+        st.toast(f"⏳ ใกล้ครบ SLA: {conv_id} ({elapsed}/{sla_min} นาที)", icon="⏳")
+        st.warning(f"ใกล้ครบ SLA: ผ่านไป {elapsed} นาที (SLA {sla_min} นาที)")
+    else:
+        st.toast(f"✅ เปิดดูเคส {conv_id}", icon="✅")
 
+    # --- Handoff indicator (mock)
+    if conv.get("handoff_at"):
+        st.toast(f"📣 Handoff แล้วเมื่อ {conv['handoff_at']}", icon="📣")
+        st.info(f"📣 Handoff แล้วเมื่อ: {conv['handoff_at']}")
+
+    # Header info
     info1, info2, info3, info4, info5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
     info1.metric("Conversation", conv["id"])
     info2.metric("Customer", conv["customer"])
     info3.metric("Status", conv["status"])
     info4.metric("Intent", conv["intent"])
     info5.metric("Channel", conv["channel"])
-
     st.caption(f"Created at: {conv['created_at']}")
 
     # Transcript
     st.markdown("#### Transcript")
     for m in conv["messages"]:
         role = m["role"]
-        # map admin เป็น assistant เพื่อให้ bubble สวย (หรือจะแยกสีด้วย CSS ก็ได้)
         if role == "admin":
             bubble_role = "assistant"
             label = "🧑‍💼 Admin"
@@ -330,7 +418,7 @@ if st.session_state.selected_conv_id:
     st.subheader("🧠 AI Summary (mock)")
     if conv.get("ai_summary") is None:
         conv["ai_summary"] = ai_summary_mock(conv)
-        data["conversations"][conv_id] = conv  # update in session
+        data["conversations"][conv_id] = conv
 
     s = conv["ai_summary"]
     a, b, c = st.columns([1.2, 2.2, 1])
@@ -352,7 +440,11 @@ if st.session_state.selected_conv_id:
     st.markdown("---")
     st.subheader("🧑‍💼 Admin Reply")
     with st.form(key=f"reply_form_{conv_id}", clear_on_submit=True):
-        reply_text = st.text_area("พิมพ์ข้อความตอบลูกค้า...", height=120, placeholder="เช่น เดี๋ยวผมเทียบ i5 vs i7 ให้ครับ ขอทราบงบและงานที่ใช้หลัก ๆ ก่อนนะครับ")
+        reply_text = st.text_area(
+            "พิมพ์ข้อความตอบลูกค้า...",
+            height=120,
+            placeholder="เช่น เดี๋ยวผมเทียบ i5 vs i7 ให้ครับ ขอทราบงบและงานที่ใช้หลัก ๆ ก่อนนะครับ"
+        )
         colx1, colx2 = st.columns([1, 1])
         send = colx1.form_submit_button("📨 Send reply")
         use_suggested = colx2.form_submit_button("✨ Use suggested question")
@@ -370,13 +462,14 @@ if st.session_state.selected_conv_id:
                     "content": reply_text.strip(),
                     "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
-                # update snippet ให้เหมือน “แชทล่าสุด”
+                # update snippet
                 for r in data["recents"]:
                     if r["id"] == conv_id:
                         r["snippet"] = reply_text.strip()[:60]
                         break
 
                 data["conversations"][conv_id] = conv
+                st.toast("✅ ส่งข้อความแล้ว (mock)", icon="✅")
                 st.success("ส่งข้อความแล้ว (mock) ✅")
                 st.rerun()
 
@@ -398,16 +491,19 @@ if st.session_state.selected_conv_id:
             if r["id"] == conv_id:
                 r["status"] = "Resolved"
                 break
+        st.toast("✅ ปิดเคสแล้ว (Resolved)", icon="✅")
         st.success("อัปเดตสถานะเป็น Resolved (mock)")
         st.rerun()
 
     if a2.button("⚠ Escalate to Human (mock)"):
         conv["status"] = "Escalated"
+        conv["handoff_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # mock handoff timestamp
         data["conversations"][conv_id] = conv
         for r in data["recents"]:
             if r["id"] == conv_id:
                 r["status"] = "Escalated"
                 break
+        st.toast(f"📣 Handoff ส่งต่อแล้ว: {conv_id}", icon="📣")
         st.warning("ส่งต่อให้เจ้าหน้าที่ (mock)")
         st.rerun()
 
@@ -420,3 +516,9 @@ if st.session_state.selected_conv_id:
             f"- Action: {s['recommended_action']}",
             language=None
         )
+
+# Trigger dialog when requested
+if st.session_state.open_dialog and st.session_state.selected_conv_id:
+    show_conversation_dialog(st.session_state.selected_conv_id)
+    # prevent auto-reopen on next rerun
+    st.session_state.open_dialog = False
