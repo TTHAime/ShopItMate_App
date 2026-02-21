@@ -36,11 +36,35 @@ with st.sidebar:
 # ---------- Helper: fake bot reply ----------
 def mock_reply(user_text: str) -> str:
     user_text_low = (user_text or "").lower()
-
+    if any(k in user_text_low for k in [
+        "ข้อมูลสินค้า", "รายละเอียด", "สเปคโดยรวม", "รุ่น", "มีของไหม", "สต็อก",
+        "สินค้า", "product", "info", "detail", "stock", "available"
+    ]):
+        return (
+            "ได้เลยครับ ✅\n\n"
+            "- ชื่อ/รุ่นสินค้า: \n"
+            "- สถานะสต็อก: มีของ / สาขาใกล้เคียง\n"
+            "- ไฮไลต์สเปค: \n"
+            "- การรับประกัน: \n"
+            "- อุปกรณ์ในกล่อง: \n\n"
+            "รบกวนบอก **ยี่ห้อ/รุ่น** ที่สนใจ (หรือส่งลิงก์สินค้า) เดี๋ยวผมสรุปให้แบบอ่านง่ายครับ"
+        )
     if any(k in user_text_low for k in ["ราคา", "price"]):
         return "ได้เลย! จะดึงราคาสินค้ามาให้ได้ทันที"
-    if any(k in user_text_low for k in ["สเปค", "spec"]):
-        return "รับทราบ! จะเทียบสเปคให้แบบตาราง + แนะนำตัวเลือกที่คุ้มสุด"
+    if any(k in user_text_low for k in ["เทียบสเปค", "เปรียบเทียบ", "compare", "spec"]):
+        return (
+            "ได้เลยครับ ✅ นี่คือตารางเทียบสเปค (mock)\n\n"
+            "| รุ่น | VRAM | CUDA Cores | Boost Clock | TGP | พอร์ต | เหมาะกับ |\n"
+            "|---|---:|---:|---:|---:|---|---|\n"
+            "| RTX 4060 (Mock A) | 8GB GDDR6 | 3072 | 2460 MHz | 115W | HDMI 2.1 + DP 1.4a | FHD 144Hz / งานทั่วไป |\n"
+            "| RTX 4060 Ti (Mock B) | 8GB GDDR6 | 4352 | 2535 MHz | 160W | HDMI 2.1 + DP 1.4a | QHD / เกม AAA |\n"
+            "| RTX 4070 (Mock C) | 12GB GDDR6X | 5888 | 2475 MHz | 200W | HDMI 2.1 + DP 1.4a | QHD/4K เบาๆ / สตรีม |\n\n"
+            "**สรุปแนะนำ (mock):**\n"
+            "- เน้นคุ้มค่าเล่น FHD → **4060**\n"
+            "- อยากลื่น QHD มากขึ้น → **4060 Ti**\n"
+            "- เผื่ออนาคต + VRAM มากขึ้น → **4070**\n\n"
+            "ถ้าบอกงบ/เกมที่เล่น/จอ (FHD/QHD/4K) เดี๋ยวผมปรับตารางให้ตรงเคสครับ"
+        )
     if any(k in user_text_low for k in ["ส่ง", "delivery", "ขนส่ง"]):
         return "เรื่องจัดส่ง: จะโชว์ตัวเลือกขนส่ง/ค่าจัดส่ง/เวลาถึงโดยประมาณได้"
     if any(k in user_text_low for k in ["เคลม", "ประกัน", "warranty", "claim"]):
@@ -66,7 +90,7 @@ for m in st.session_state.messages:
 # ---------- Quick replies ----------
 st.markdown("### ⚡ Quick replies")
 cols = st.columns(4)
-quick_list = ["เช็คราคา", "เทียบสเปค", "เคลม/ประกัน", "ถามการจัดส่ง"]
+quick_list = ["ข้อมูลสินค้า", "เทียบสเปค", "เคลม/ประกัน", "การจัดส่ง"]
 for i, q in enumerate(quick_list):
     if cols[i].button(q, use_container_width=True):
         st.session_state.selected_quick = q
@@ -105,7 +129,7 @@ if user_text:
 # ---------- Claim/Warranty Form ----------
 if st.session_state.show_claim_form and not st.session_state.claim_submitted:
     st.markdown("---")
-    st.subheader("🧾 ฟอร์มเคลม/ประกัน (mock)")
+    st.subheader("🧾 ฟอร์มเคลม/ประกัน")
 
     with st.form("claim_form", clear_on_submit=False):
         col1, col2 = st.columns(2)

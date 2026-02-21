@@ -9,7 +9,7 @@ try:
 except Exception:
     Image = None
 
-st.set_page_config(page_title="Admin (Mock Metabase)", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Admin", page_icon="📊", layout="wide")
 
 # =========================================================
 # CSS: wrap long texts + make table nicer
@@ -44,7 +44,7 @@ st.markdown(
 )
 
 # =========================================================
-# SLA / Handoff config (mock)
+# SLA / Handoff config 
 # =========================================================
 SLA_MINUTES = {
     "Pending": 15,
@@ -84,7 +84,6 @@ def sla_badge(state: str):
     return "✅ OK"
 
 def attention_chip(status: str, sla_state_str: str):
-    # เด่นๆ สำหรับ handoff / SLA
     if status == "Escalated":
         return '<span class="chip chip-blue">📣 HANDOFF</span>'
     if sla_state_str == "BREACH":
@@ -94,7 +93,7 @@ def attention_chip(status: str, sla_state_str: str):
     return '<span class="chip chip-green">✅ OK</span>'
 
 # =========================================================
-# Mock image generator (no external files)
+#  image generator (no external files)
 # =========================================================
 def make_mock_image(text: str, w=860, h=480):
     if Image is None:
@@ -102,11 +101,9 @@ def make_mock_image(text: str, w=860, h=480):
     img = Image.new("RGB", (w, h), (245, 246, 248))
     d = ImageDraw.Draw(img)
 
-    # header bar
     d.rectangle([0, 0, w, 70], fill=(30, 41, 59))
     d.text((20, 20), "Mock Attachment", fill=(255, 255, 255))
 
-    # body
     d.rectangle([20, 95, w - 20, h - 20], outline=(160, 160, 160), width=2)
     d.text((40, 120), text, fill=(20, 20, 20))
     d.text((40, 160), f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", fill=(90, 90, 90))
@@ -117,7 +114,7 @@ def make_mock_image(text: str, w=860, h=480):
     return bio
 
 # =========================================================
-# Mock: conversation messages
+# : conversation messages
 # =========================================================
 def mock_conversation_messages(intent: str):
     templates = {
@@ -196,10 +193,10 @@ def mock_metabase_fetch():
     recents = []
     conversations = {}
 
-    # --- สร้างเคสเคลม/ประกัน “บังคับมี 1 เคส” และทำให้เด่น + handoff
+    # Force 1 claim/warranty case (handoff)
     claim_id = f"CNV-{datetime.now().strftime('%y%m%d')}-CLM001"
-    claim_created = datetime.now() - timedelta(minutes=18)  # ทำให้ใกล้/เกิน SLA ได้ง่าย
-    claim_status = "Escalated"  # ต้อง handoff แน่นอน
+    claim_created = datetime.now() - timedelta(minutes=18)
+    claim_status = "Escalated"
     claim_customer = random.choice(names)
 
     claim_row = {
@@ -218,7 +215,7 @@ def mock_metabase_fetch():
         "intent": "เคลม/ประกัน",
         "status": claim_status,
         "created_at": claim_created.strftime("%Y-%m-%d %H:%M:%S"),
-        "channel": "Web Chat",  # channel เดียว
+        "channel": "Web Chat",
         "messages": mock_conversation_messages("เคลม/ประกัน"),
         "ai_summary": None,
         "handoff_at": (datetime.now() - timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:%S"),
@@ -228,13 +225,11 @@ def mock_metabase_fetch():
         ],
     }
 
-    # --- สร้างเคสอื่นๆ ลดจำนวนลง: รวมทั้งหมด 8 เคส (1 claim + 7 random)
+    # Create other cases: total 8 cases (1 claim + 7 random)
     for idx in range(7):
         conv_id = f"CNV-{datetime.now().strftime('%y%m%d')}-{idx+1:03d}"
         intent = random.choice([i[0] for i in intents if i[0] != "เคลม/ประกัน"])
         created_at = datetime.now() - timedelta(minutes=random.randint(1, 240))
-
-        # bias
         status = random.choices(
             ["Resolved", "Escalated", "Pending"],
             weights=[0.45, 0.20, 0.35],
@@ -257,14 +252,13 @@ def mock_metabase_fetch():
             "intent": intent,
             "status": status,
             "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "channel": "Web Chat",  # channel เดียว
+            "channel": "Web Chat",
             "messages": mock_conversation_messages(intent),
             "ai_summary": None,
             "handoff_at": None,
             "attachments": [],
         }
 
-    # sort by time desc
     recents.sort(key=lambda x: x["time"], reverse=True)
 
     return {
@@ -282,7 +276,7 @@ def mock_metabase_fetch():
     }
 
 # =========================================================
-# AI Summary (mock) — ตัด Recommended next question ออก
+# AI Summary (mock) — Removed "Recommended next question"
 # =========================================================
 def ai_summary_mock(conv: dict) -> dict:
     msgs = conv.get("messages", [])
@@ -312,27 +306,26 @@ def ai_summary_mock(conv: dict) -> dict:
     return {
         "intent": intent,
         "customer_goal": last_user or "(ไม่พบข้อความจากลูกค้า)",
-        "what_happened": "ลูกค้าสอบถาม/ขอคำแนะนำ และระบบบอทตอบเบื้องต้น (mock)",
+        "what_happened": "ลูกค้าสอบถาม/ขอคำแนะนำ และระบบบอทตอบเบื้องต้น ",
         "recommended_action": action,
-        "confidence": "Medium (mock)",
+        "confidence": "Medium",
     }
 
 # =========================================================
 # UI
 # =========================================================
-st.title("📊 Admin Panel (Mock) — Simulate Metabase Data")
-st.caption("หน้านี้เป็น mockup: จำลองการดึงข้อมูลจาก Metabase (ยังไม่ต่อจริง)")
+st.title("📊 Admin Panel ")
+
 
 with st.sidebar:
     st.subheader("⚙️ Controls")
     shop = st.selectbox("ร้าน", ["Demo Shop", "IT Shop A", "IT Shop B"], index=0)
     range_opt = st.selectbox("ช่วงเวลา", ["7 วันล่าสุด", "30 วันล่าสุด", "วันนี้"], index=0)
     st.markdown("---")
-    refresh = st.button("🔄 Refresh (mock)", use_container_width=True)
+    refresh = st.button("🔄 Refresh ", width="stretch")
 
-# session state
 if "mb_data" not in st.session_state or refresh:
-    with st.spinner("กำลังดึงข้อมูลจาก Metabase... (mock)"):
+    with st.spinner("กำลังดึงข้อมูลจาก Metabase..."):
         st.session_state.mb_data = mock_metabase_fetch()
 
 if "selected_conv_id" not in st.session_state:
@@ -343,9 +336,7 @@ if "open_dialog" not in st.session_state:
 
 data = st.session_state.mb_data
 
-# ------------------------------
 # KPIs
-# ------------------------------
 kpi = data["kpi"]
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total Chats", f"{kpi['total_chats']}")
@@ -355,11 +346,8 @@ c4.metric("CSAT (1-5)", f"{kpi['csat']}")
 
 st.markdown("")
 
-# ------------------------------
 # Charts
-# ------------------------------
 left, right = st.columns([1.4, 1])
-
 with left:
     st.subheader("Chats over time")
     series = {row["date"]: row["chats"] for row in data["chats_series"]}
@@ -372,10 +360,8 @@ with right:
 
 st.markdown("---")
 
-# ------------------------------
 # Filters
-# ------------------------------
-st.subheader("Recent conversations (mock)")
+st.subheader("Recent conversations")
 st.caption(f"Fetched at: {data['fetched_at']} • Shop: {shop} • Range: {range_opt}")
 
 colf1, colf2, colf3 = st.columns([1, 1, 1.2])
@@ -407,11 +393,8 @@ filtered = [
     and match_query(r, q)
 ]
 
-# ------------------------------
-# SLA banner summary
-# ------------------------------
-breach_ids = []
-handoff_ids = []
+# SLA / handoff banners
+breach_ids, handoff_ids = [], []
 for r in filtered:
     conv = data["conversations"].get(r["id"])
     if not conv:
@@ -423,24 +406,12 @@ for r in filtered:
         handoff_ids.append(r["id"])
 
 if breach_ids:
-    st.error(
-        "🔥 SLA Breach: "
-        + ", ".join(breach_ids[:3])
-        + ("..." if len(breach_ids) > 3 else "")
-    )
+    st.error("🔥 SLA Breach: " + ", ".join(breach_ids[:3]) + ("..." if len(breach_ids) > 3 else ""))
 
 if handoff_ids:
-    st.warning(
-        "📣 เคสที่ต้อง Handoff: "
-        + ", ".join(handoff_ids[:3])
-        + ("..." if len(handoff_ids) > 3 else "")
-    )
+    st.warning("📣 เคสที่ต้อง Handoff: " + ", ".join(handoff_ids[:3]) + ("..." if len(handoff_ids) > 3 else ""))
 
-# ------------------------------
 # Table-like list
-# - เพิ่ม Attention ให้เด่น
-# - wrap id/snippet
-# ------------------------------
 header = st.columns([0.9, 1.7, 1.1, 1.1, 1.2, 1.5, 3.0, 0.9])
 header[0].markdown("**Time**")
 header[1].markdown("**Conversation ID**")
@@ -456,18 +427,11 @@ for row in filtered:
     state, elapsed, sla_min = sla_state(conv) if conv else ("OK", 0, None)
 
     cols = st.columns([0.9, 1.7, 1.1, 1.1, 1.2, 1.5, 3.0, 0.9])
-
     cols[0].write(row["time"])
 
-    # wrap id (แทน st.code ที่มันตัด)
-    cols[1].markdown(
-        f'<div class="wrap mono">{row["id"]}</div>',
-        unsafe_allow_html=True
-    )
-
+    cols[1].markdown(f'<div class="wrap mono">{row["id"]}</div>', unsafe_allow_html=True)
     cols[2].write(row["customer"])
 
-    # ทำ status เด่นขึ้น
     if row["status"] == "Escalated":
         cols[3].markdown("**⚠ Escalated**")
     elif row["status"] == "Pending":
@@ -475,20 +439,17 @@ for row in filtered:
     else:
         cols[3].markdown("✅ Resolved")
 
-    # attention chip
     cols[4].markdown(attention_chip(row["status"], state), unsafe_allow_html=True)
 
-    # SLA text
     if sla_min:
-        cols[5].markdown(f"{sla_badge(state)}<br/><span class='mono'>({elapsed}/{sla_min} min)</span>", unsafe_allow_html=True)
+        cols[5].markdown(
+            f"{sla_badge(state)}<br/><span class='mono'>({elapsed}/{sla_min} min)</span>",
+            unsafe_allow_html=True
+        )
     else:
         cols[5].write(sla_badge(state))
 
-    # wrap snippet ให้ลงบรรทัดใหม่
-    cols[6].markdown(
-        f'<div class="wrap">[{row["intent"]}] {row["snippet"]}</div>',
-        unsafe_allow_html=True
-    )
+    cols[6].markdown(f'<div class="wrap">[{row["intent"]}] {row["snippet"]}</div>', unsafe_allow_html=True)
 
     if cols[7].button("👁 View", key=f"view_{row['id']}"):
         st.session_state.selected_conv_id = row["id"]
@@ -496,7 +457,7 @@ for row in filtered:
         st.rerun()
 
 # =========================================================
-# Popup Dialog: Conversation detail
+# Popup Dialog
 # =========================================================
 @st.dialog("💬 Chat Detail", width="large")
 def show_conversation_dialog(conv_id: str):
@@ -505,7 +466,6 @@ def show_conversation_dialog(conv_id: str):
         st.warning("ไม่พบข้อมูลแชทนี้ (อาจ refresh แล้วข้อมูลเปลี่ยน)")
         return
 
-    # SLA / Handoff notifications
     state, elapsed, sla_min = sla_state(conv)
     if conv.get("status") == "Escalated":
         st.toast(f"📣 HANDOFF: {conv_id}", icon="📣")
@@ -521,7 +481,6 @@ def show_conversation_dialog(conv_id: str):
     if conv.get("handoff_at"):
         st.info(f"🕒 Handoff at: {conv['handoff_at']}")
 
-    # Header (แก้การตัดข้อความยาว)
     st.markdown(f"### <div class='wrap mono'>{conv['id']}</div>", unsafe_allow_html=True)
 
     info1, info2, info3, info4 = st.columns([1.4, 1.4, 1.2, 1.6])
@@ -531,17 +490,15 @@ def show_conversation_dialog(conv_id: str):
     info4.metric("Channel", conv["channel"])
     st.caption(f"Created at: {conv['created_at']}")
 
-    # Attachments (เคลม/ประกันจะมี)
     if conv.get("attachments"):
-        st.markdown("#### 📎 Attachments (mock)")
+        st.markdown("#### 📎 Attachments ")
         for att in conv["attachments"]:
             st.write(f"- {att.get('name','attachment')}")
             if att.get("bytes") is not None:
-                st.image(att["bytes"], use_container_width=True)
+                st.image(att["bytes"], width="stretch")
             else:
                 st.info("(ไม่มีภาพ mock ในระบบ)")
 
-    # Transcript
     st.markdown("#### Transcript")
     for m in conv["messages"]:
         role = m["role"]
@@ -557,9 +514,8 @@ def show_conversation_dialog(conv_id: str):
                 st.caption(label)
             st.markdown(m["content"])
 
-    # AI Summary (ตัด Recommended next question ออกแล้ว)
     st.markdown("---")
-    st.subheader("🧠 AI Summary (mock)")
+    st.subheader("🧠 AI Summary ")
     if conv.get("ai_summary") is None:
         conv["ai_summary"] = ai_summary_mock(conv)
         data["conversations"][conv_id] = conv
@@ -577,7 +533,6 @@ def show_conversation_dialog(conv_id: str):
     st.write("**Recommended action:**")
     st.success(s["recommended_action"])
 
-    # Admin Reply (ตัดปุ่ม use suggested ออก)
     st.markdown("---")
     st.subheader("🧑‍💼 Admin Reply")
     with st.form(key=f"reply_form_{conv_id}", clear_on_submit=True):
@@ -597,23 +552,20 @@ def show_conversation_dialog(conv_id: str):
                     "content": reply_text.strip(),
                     "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
-                # update snippet
                 for r in data["recents"]:
                     if r["id"] == conv_id:
                         r["snippet"] = reply_text.strip()[:120]
                         break
-
                 data["conversations"][conv_id] = conv
-                st.toast("✅ ส่งข้อความแล้ว (mock)", icon="✅")
-                st.success("ส่งข้อความแล้ว (mock) ✅")
+                st.toast("✅ ส่งข้อความแล้ว ", icon="✅")
+                st.success("ส่งข้อความแล้ว  ✅")
                 st.rerun()
 
-    # Actions
     st.markdown("---")
-    st.subheader("Actions (mock)")
+    st.subheader("Actions ")
     a1, a2 = st.columns(2)
 
-    if a1.button("✅ Mark Resolved (mock)"):
+    if a1.button("✅ Mark Resolved ", width="stretch"):
         conv["status"] = "Resolved"
         data["conversations"][conv_id] = conv
         for r in data["recents"]:
@@ -623,7 +575,7 @@ def show_conversation_dialog(conv_id: str):
         st.toast("✅ ปิดเคสแล้ว (Resolved)", icon="✅")
         st.rerun()
 
-    if a2.button("⚠ Escalate to Human (mock)"):
+    if a2.button("⚠ Escalate to Human ", width="stretch"):
         conv["status"] = "Escalated"
         conv["handoff_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data["conversations"][conv_id] = conv
@@ -634,7 +586,6 @@ def show_conversation_dialog(conv_id: str):
         st.toast(f"📣 Handoff ส่งต่อแล้ว: {conv_id}", icon="📣")
         st.rerun()
 
-# Trigger dialog
 if st.session_state.open_dialog and st.session_state.selected_conv_id:
     show_conversation_dialog(st.session_state.selected_conv_id)
     st.session_state.open_dialog = False
