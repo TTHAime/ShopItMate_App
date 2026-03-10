@@ -99,7 +99,8 @@ try:
 
     st.divider()
 
-    # =========================
+ 
+     # =========================
     # SLA SUMMARY
     # =========================
     st.subheader("📈 SLA Summary")
@@ -119,10 +120,12 @@ try:
         .join(CaseSLA, Case.case_id == CaseSLA.case_id)
     ).one()
 
+    avg_ttr_value = f"{float(sla.avg_ttr_min):.1f}" if sla.avg_ttr_min is not None else "-"
+
     a1, a2, a3 = st.columns(3)
-    a1.metric("TTR Breached (ทั้งหมด)", sla.ttr_breach or 0)
-    a2.metric("TTC Breached (ทั้งหมด)", sla.ttc_breach or 0)
-    a3.metric("Avg TTR จริง (นาที)", sla.avg_ttr_min or "-")
+    a1.metric("TTR Breached (ทั้งหมด)", int(sla.ttr_breach or 0))
+    a2.metric("TTC Breached (ทั้งหมด)", int(sla.ttc_breach or 0))
+    a3.metric("Avg TTR จริง (นาที)", avg_ttr_value)
 
     st.divider()
 
