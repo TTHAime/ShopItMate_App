@@ -45,10 +45,12 @@ try:
 
     cnt = {row.status: row.cnt for row in today_status_rows}
 
+    total_today = sum(cnt.values())
+
     c1.metric("🆕 OPEN วันนี้", cnt.get("OPEN", 0))
     c2.metric("🔄 IN_PROGRESS วันนี้", cnt.get("IN_PROGRESS", 0))
-    c3.metric("✅ RESOLVED วันนี้", cnt.get("RESOLVED", 0))
-    c4.metric("🔒 CLOSED วันนี้", cnt.get("CLOSED", 0))
+    c3.metric("🔒 CLOSED วันนี้", cnt.get("CLOSED", 0))
+    c4.metric("📋 เคสทั้งหมดวันนี้", total_today)
 
     st.divider()
 

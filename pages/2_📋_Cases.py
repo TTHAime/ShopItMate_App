@@ -59,7 +59,7 @@ def fmt_dt_th(dt_value):
 # =========================
 f1, f2, f3 = st.columns(3)
 
-status_options   = ["ทั้งหมด", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]
+status_options   = ["ทั้งหมด", "OPEN", "IN_PROGRESS", "CLOSED"]
 category_options = ["ทั้งหมด", "CLAIM", "BROKEN", "SHIPPING", "RETURN", "DOCUMENT", "CONTACT_ADMIN", "UNCLEAR"]
 priority_options = ["ทั้งหมด", "urgent", "high", "medium", "low"]
 
@@ -144,10 +144,9 @@ try:
     STATUS_COLOR = {
         "OPEN":        "#2563eb",
         "IN_PROGRESS": "#d97706",
-        "RESOLVED":    "#16a34a",
         "CLOSED":      "#4b5563",
     }
-    STATUS_ICON = {"OPEN": "🔵", "IN_PROGRESS": "🟡", "RESOLVED": "🟢", "CLOSED": "⚫"}
+    STATUS_ICON = {"OPEN": "🔵", "IN_PROGRESS": "🟡", "CLOSED": "⚫"}
     PRIORITY_COLOR = {"urgent": "#dc2626", "high": "#ea580c", "medium": "#ca8a04", "low": "#16a34a"}
     PRIORITY_ICON  = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
     BOT_META = {
@@ -322,7 +321,7 @@ try:
             cid_str = str(case.case_id)
 
             if case.status in ("OPEN", "IN_PROGRESS"):
-                b1, b2, b3, b_spacer = st.columns([1, 1, 1, 2])
+                b1, b2, b_spacer = st.columns([1, 1, 3])
 
                 if case.status == "OPEN":
                     if b1.button("▶ รับงาน", key=f"ip_{sid}", use_container_width=True):
@@ -332,14 +331,15 @@ try:
                         else:
                             st.error("อัปเดตสถานะไม่สำเร็จ")
 
-                if b2.button("✅ แก้ไขแล้ว", key=f"rv_{sid}", use_container_width=True):
-                    if update_case_status(cid_str, "RESOLVED"):
-                        st.success("อัปเดตเป็น RESOLVED แล้ว")
-                        st.rerun()
-                    else:
-                        st.error("อัปเดตสถานะไม่สำเร็จ")
-
-                if b3.button("🔒 ปิดเคส", key=f"cl_{sid}", type="primary", use_container_width=True):
+                is_open = case.status == "OPEN"
+                if b2.button(
+                    "🔒 ปิดเคส",
+                    key=f"cl_{sid}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=is_open,
+                    help="ต้องรับงานก่อนจึงจะปิดเคสได้" if is_open else None,
+                ):
                     if update_case_status(cid_str, "CLOSED"):
                         st.success("ปิดเคสแล้ว")
                         st.rerun()
