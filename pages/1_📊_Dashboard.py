@@ -19,7 +19,9 @@ if "notif_filter" not in st.session_state:
 
 
 def render_html_block(content: str):
-    st.markdown(dedent(content).strip(), unsafe_allow_html=True)
+    import re
+    compressed = re.sub(r'\s+', ' ', dedent(content).strip())
+    st.markdown(compressed, unsafe_allow_html=True)
 
 
 session = get_session()
@@ -99,8 +101,7 @@ try:
 
     st.divider()
 
- 
-     # =========================
+    # =========================
     # SLA SUMMARY
     # =========================
     st.subheader("📈 SLA Summary")
@@ -134,7 +135,8 @@ try:
     # =========================
     st.subheader("🔔 Notifications")
 
-    f1, f2 = st.columns([2, 1])
+    # --- Filter + Page info row ---
+    f1, f2 = st.columns([3, 1])
 
     with f1:
         selected_filter = st.radio(
@@ -144,7 +146,6 @@ try:
             index=0 if st.session_state.notif_filter == "UNREAD" else 1,
             label_visibility="collapsed"
         )
-
         if selected_filter != st.session_state.notif_filter:
             st.session_state.notif_filter = selected_filter
             st.session_state.notif_page = 1
@@ -174,12 +175,14 @@ try:
 
     with f2:
         render_html_block(f"""
-<div style="text-align:right;color:#9ca3af;font-size:14px;padding-top:6px;">
-หน้า {st.session_state.notif_page} / {total_pages}
+<div style="text-align:right;color:#6b7280;font-size:13px;padding-top:8px;">
+หน้า <b style="color:#d1d5db;">{st.session_state.notif_page}</b> / {total_pages}
+&nbsp;·&nbsp; ทั้งหมด <b style="color:#d1d5db;">{total_notifications}</b> รายการ
 </div>
 """)
 
     if notifs:
+        # --- Notification Cards ---
         for n in notifs:
             created_text = (
                 n.created_at.strftime("%d/%m/%Y %H:%M")
@@ -190,63 +193,90 @@ try:
             message_text = str(getattr(n, "message", "") or "")
             is_read = bool(getattr(n, "is_read", False))
 
-            type_color = {
-                "SLA_ALERT": "#dc2626",
-                "NEW_CASE": "#2563eb",
-                "CASE_UPDATE": "#16a34a",
-                "INFO": "#6b7280",
-                "new_case": "#2563eb",
-                "case_update": "#16a34a",
-            }.get(notif_type, "#6b7280")
+            type_meta = {
+                "SLA_ALERT":    {"color": "#dc2626", "bg": "#2d1111", "label": "⚠ SLA Alert"},
+                "NEW_CASE":     {"color": "#2563eb", "bg": "#111827", "label": "📋 New Case"},
+                "new_case":     {"color": "#2563eb", "bg": "#111827", "label": "📋 New Case"},
+                "CASE_UPDATE":  {"color": "#16a34a", "bg": "#0f1f13", "label": "🔄 Case Update"},
+                "case_update":  {"color": "#16a34a", "bg": "#0f1f13", "label": "🔄 Case Update"},
+                "INFO":         {"color": "#6b7280", "bg": "#111827", "label": "ℹ Info"},
+            }
+            meta = type_meta.get(notif_type, {"color": "#6b7280", "bg": "#111827", "label": notif_type})
 
-            read_badge = "⚪ Read" if is_read else "🔵 Unread"
+            # Unread = slightly brighter bg + left accent bar
+            card_bg     = "#0f172a" if not is_read else "#111827"
+            border_left = f"4px solid {meta['color']}" if not is_read else "4px solid #1f2937"
+            opacity     = "1" if not is_read else "0.55"
 
-            notif_type_safe = html.escape(notif_type)
+            notif_type_label  = html.escape(meta["label"])
             created_text_safe = html.escape(created_text)
-            message_safe = html.escape(message_text)
-            read_badge_safe = html.escape(read_badge)
+            message_safe      = html.escape(message_text)
+            badge_dot         = "🔵" if not is_read else "⚪"
+            badge_text        = "ยังไม่อ่าน" if not is_read else "อ่านแล้ว"
 
             render_html_block(f"""
-<div style="border:1px solid #2a2a2a;border-radius:14px;padding:14px 16px;margin-bottom:12px;background:#111827;">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-<div>
-<span style="background:{type_color};color:white;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;">
-{notif_type_safe}
-</span>
-</div>
-<div style="font-size:12px;color:#9ca3af;">
-{created_text_safe}
-</div>
-</div>
+<div style="
+    border: 1px solid #1f2937;
+    border-left: {border_left};
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    background: {card_bg};
+    opacity: {opacity};
+">
+    <!-- Header row: badge + timestamp -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+        <span style="
+            background:{meta['color']}22;
+            color:{meta['color']};
+            border: 1px solid {meta['color']}55;
+            padding:3px 10px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:700;
+            letter-spacing:0.03em;
+        ">{notif_type_label}</span>
+        <span style="font-size:12px; color:#6b7280;">🕐 {created_text_safe}</span>
+    </div>
 
-<div style="font-size:15px;color:#f9fafb;line-height:1.6;margin-bottom:8px;white-space:pre-wrap;word-break:break-word;">
-{message_safe}
-</div>
+    <!-- Message body -->
+    <div style="
+        font-size:14px;
+        color:#e5e7eb;
+        line-height:1.7;
+        white-space:normal;
+        word-break:break-word;
+        margin-bottom:10px;
+    ">{message_safe}</div>
 
-<div style="font-size:12px;color:#9ca3af;">
-{read_badge_safe}
-</div>
+    <!-- Footer: read status -->
+    <div style="font-size:11px; color:#4b5563;">
+        {badge_dot} {badge_text}
+    </div>
 </div>
 """)
 
-        p1, p2, p3 = st.columns([1, 1, 2])
+        # --- Pagination + Mark-read buttons ---
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-        with p1:
-            if st.button("⬅ ก่อนหน้า", disabled=st.session_state.notif_page <= 1):
+        btn_prev, btn_next, btn_mark, btn_spacer = st.columns([1, 1, 2, 1])
+
+        with btn_prev:
+            if st.button("⬅ ก่อนหน้า", disabled=st.session_state.notif_page <= 1, use_container_width=True):
                 st.session_state.notif_page -= 1
                 st.rerun()
 
-        with p2:
-            if st.button("ถัดไป ➡", disabled=st.session_state.notif_page >= total_pages):
+        with btn_next:
+            if st.button("ถัดไป ➡", disabled=st.session_state.notif_page >= total_pages, use_container_width=True):
                 st.session_state.notif_page += 1
                 st.rerun()
 
-        with p3:
-            if st.button("✔ Mark visible as read"):
-                notif_ids = [n.notification_id for n in notifs if not n.is_read]
+        with btn_mark:
+            if st.button("✔ Mark visible as read", type="primary", use_container_width=True):
+                notif_ids = [n.id for n in notifs if not n.is_read]
                 if notif_ids:
                     session.query(AdminNotification).filter(
-                        AdminNotification.notification_id.in_(notif_ids)
+                        AdminNotification.id.in_(notif_ids)
                     ).update(
                         {AdminNotification.is_read: True},
                         synchronize_session=False
@@ -254,17 +284,6 @@ try:
                     session.commit()
                 st.rerun()
 
-        if st.session_state.notif_filter == "UNREAD":
-            if st.button("✔ Mark all unread as read"):
-                session.query(AdminNotification).filter(
-                    AdminNotification.is_read == False
-                ).update(
-                    {AdminNotification.is_read: True},
-                    synchronize_session=False
-                )
-                session.commit()
-                st.session_state.notif_page = 1
-                st.rerun()
     else:
         st.success("ไม่มี notification")
 
