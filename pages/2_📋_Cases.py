@@ -270,7 +270,7 @@ try:
                 """)
 
             with col_r:
-                def deadline_html(label, due_at):
+                def deadline_html(label, due_at, breached):
                     if not due_at:
                         return f"""
                         <div>
@@ -278,22 +278,25 @@ try:
                             <div style="font-size:15px;color:#4b5563;">-</div>
                         </div>
                         """
-                    rem = int((due_at - now_utc).total_seconds() / 60)
-                    if rem < 0:
-                        lbl = f"🔴 เกิน {format_minutes_th(abs(rem))}"
+
+                    due_str = fmt_dt_th(due_at)
+
+                    if breached:
                         clr = "#dc2626"
+                        txt = f"เกิน SLA แล้ว • ครบกำหนด {due_str}"
                     else:
-                        lbl = f"🟢 เหลือ {format_minutes_th(rem)}"
                         clr = "#16a34a"
+                        txt = f"ครบกำหนด {due_str}"
+
                     return f"""
                     <div>
                         <div style="font-size:13px;color:#6b7280;">{label}</div>
-                        <div style="font-size:15px;color:{clr};font-weight:600;">{html.escape(lbl)}</div>
+                        <div style="font-size:15px;color:{clr};font-weight:600;">{html.escape(txt)}</div>
                     </div>
                     """
 
-                ttr_html = deadline_html("TTR Deadline", row.ttr_due_at)
-                ttc_html = deadline_html("TTC Deadline", row.ttc_due_at)
+                ttr_html = deadline_html("TTR Deadline", row.ttr_due_at, row.ttr_breached)
+                ttc_html = deadline_html("TTC Deadline", row.ttc_due_at, row.ttc_breached)
                 ttr_breach_txt = "🔴 ใช่" if row.ttr_breached else "🟢 ไม่"
                 ttc_breach_txt = "🔴 ใช่" if row.ttc_breached else "🟢 ไม่"
 
