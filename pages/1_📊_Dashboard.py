@@ -90,7 +90,7 @@ try:
 
             render_html_block(f"""
 <div style="border:1px solid #2a2a2a;border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#111827;">
-<div style="font-size:15px;color:#f9fafb;line-height:1.5;margin-bottom:4px;">
+<div style="font-size:20px;color:#f9fafb;line-height:1.5;margin-bottom:4px;">
 {icon} <b>#{case_code}</b> | {category} | {priority}
 </div>
 <div style="font-size:13px;color:#9ca3af;">
@@ -243,7 +243,7 @@ try:
 
     <!-- Message body -->
     <div style="
-        font-size:14px;
+        font-size:16px;
         color:#e5e7eb;
         line-height:1.7;
         white-space:normal;
