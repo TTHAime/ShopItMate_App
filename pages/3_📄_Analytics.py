@@ -293,7 +293,7 @@ st.divider()
 col_a, col_b = st.columns(2)
 
 with col_a:
-    st.subheader('🤖 Bot vs Admin Workload')
+    st.subheader('🤖 Bot / Admin Workload')
     df_work = qdf(f"""
         SELECT handled_by, cnt FROM (
             SELECT 'Bot (FAQ/Product)' AS handled_by, COUNT(*) AS cnt
